@@ -16,8 +16,6 @@ utc = pytz.UTC
 
 
 def read_csv_file(row):
-    # print(type(row))
-    # print(row)
     elements = row.split(',')
     elements_dict = {}
     for i in range(len(elements)):
