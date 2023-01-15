@@ -1,64 +1,38 @@
-import apache_beam as beam
-from datetime import datetime
-from dateutil import parser
-import pytz
-import csv
+import argparse
+from pathlib import Path
+import logging
+import sys
 
-import datetime as datetime
-import pandas as pd
-from apache_beam.runners.interactive.interactive_runner import InteractiveRunner
+logging.basicConfig(
+    format="%(levelname)s: %(asctime)s - %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
-from apache_beam.options.pipeline_options import PipelineOptions
+path_root = Path(__file__).parents[2]
+sys.path.append(str(path_root))
 
-TABLE_ORDER = ["timestamp", "origin", "destination", "transaction_amount"]
-TABLE_SCHEMA = {"timestamp": parser.parse, "origin": str, "destination": str, "transaction_amount": float}
-utc = pytz.UTC
+from src.ApacheBeamBaseInteraction import VirginMediaTestOne, VirginMediaTestTwo
 
+def main(args):
+    param = {}
+    if args.input_path:
+        param.update({"input_url_src":args.input_path})
 
-def read_csv_file(row):
-    elements = row.split(',')
-    elements_dict = {}
-    for i in range(len(elements)):
-        elements_dict[TABLE_ORDER[i]] = TABLE_SCHEMA[TABLE_ORDER[i]](elements[i])
-    return elements_dict
+    if args.output_path:
+        param.update({"local_output_dest":args.output_path})
 
+    if args.task_number == 1:
+        VirginMediaTestOne(**param).process()
+    elif args.task_number == 2:
+        VirginMediaTestTwo(**param).process()
+    else:
+        raise Exception('Task number error')
 
-def over_20(element):
-    return element["transaction_amount"] > 20
-
-
-def not_before_2010(element):
-    return not element["timestamp"] < datetime.datetime(2010, 1, 1).replace(tzinfo=utc)
-
-
-def datetime_format(element):
-    return datetime.strptime(element, "%Y-%m-%d %H:%M:%S UTC")
-
-
-with beam.Pipeline() as p:
-    elements = (p | beam.io.ReadFromText(
-        'gs://cloud-samples-data/bigquery/sample-transactions/transactions.csv', skip_header_lines=1)
-                | beam.Map(read_csv_file)
-                | beam.Filter(over_20)
-                | beam.Filter(not_before_2010)
-                | beam.io.WriteToText('./output/test.csv'))
-#
-
-# p = beam.Pipeline(InteractiveRunner())
-# rows = (
-#     p
-#     | beam.io.filesystems.FileSystems.open('gs://cloud-samples-data/bigquery/sample-transactions/transactions.csv')  # emits FileMetadatas
-#     | beam.FlatMap(read_csv_file))                          # emits rows
-#     pass
-# beam_options = PipelineOptions()
-#
-#
-# class MyOptions(PipelineOptions):
-#     @classmethod
-#     def _add_argparse_args(cls, parser):
-#         parser.add_argument(
-#             '--input',
-#             default='gs://cloud-samples-data/bigquery/sample-transactions/transactions.csv',
-#             help='The file path for the input text to process.')
-#         parser.add_argument(
-#             '--output', default='./output/', help='The path prefix for output files.')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_path', type=str)
+    parser.add_argument('--output_path', type=str)
+    parser.add_argument('--task_number', type=int, required=True)
+    args = parser.parse_args()
+    main(args)
