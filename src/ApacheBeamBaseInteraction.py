@@ -127,6 +127,7 @@ class VirginMediaTestTwo(VirginMediaTestOne):
 
     def process(self):
         with beam.Pipeline() as p:
+            # Composite transform
             output = (
                 p
                 | beam.io.ReadFromText(self.input_url_src, skip_header_lines=1)
@@ -138,9 +139,9 @@ class VirginMediaTestTwo(VirginMediaTestOne):
             output | beam.Map(lambda x: f"{x[0]}, {x[1]}") | beam.io.WriteToText(
                 self.local_output_dest
             )
-            assert_that(
-                output, equal_to(EXPECTED_OUTPUT)
-            )
+
+            # Unit test
+            assert_that(output, equal_to(EXPECTED_OUTPUT))
 
 
 class CsvToDict(beam.PTransform):
