@@ -58,26 +58,30 @@ class VirginMediaTestOne(ApacheBeamBaseInteraction):
 
     def process(self):
         with beam.Pipeline() as p:
+            # read file as csv
             transactions_df = p | "Read CSV" >> beam.dataframe.io.read_csv(
                 self.input_url_src, parse_dates=["timestamp"]
             )
+            # convert into pcollection
             transactions_collection = beam.dataframe.convert.to_pcollection(
                 transactions_df
             )
+            #filter out transaction amount
             large_transaction_collection = (
                 transactions_collection
                 | "Get large transaction"
                 >> beam.Filter(self.find_all_transaction_amount_over_20)
             )
+            #filter out timestamp
             new_large_transaction_collection = (
                 large_transaction_collection
                 | "Remove old transaction" >> beam.Filter(self.exclude_all_before_2010)
             )
-
+            #convert into df
             new_large_transaction_df = beam.dataframe.convert.to_dataframe(
                 new_large_transaction_collection
             )
-
+            # group transaction amount by date
             new_large_transaction_df["date"] = new_large_transaction_df[
                 "timestamp"
             ].apply(lambda x: x.date())
@@ -85,12 +89,14 @@ class VirginMediaTestOne(ApacheBeamBaseInteraction):
                 new_large_transaction_df["date"]
             ).sum()
             transaction_per_day_series.name = "total_amount"
+
+            #output to csv
             transaction_per_day_series.to_csv(self.local_output_dest)
 
     @staticmethod
     def find_all_transaction_amount_over_20(element):
         """
-
+        return all rows that has a transaction amount > 20
         :param element:
         :return:
         """
@@ -99,7 +105,7 @@ class VirginMediaTestOne(ApacheBeamBaseInteraction):
     @staticmethod
     def exclude_all_before_2010(element):
         """
-
+        return all rows that does not have timestamp before 2010
         :param element:
         :return:
         """
@@ -131,11 +137,13 @@ class VirginMediaTestTwo(VirginMediaTestOne):
             output = (
                 p
                 | beam.io.ReadFromText(self.input_url_src, skip_header_lines=1)
-                | CsvToDict()
-                | FilterAmount()
-                | FilterDate()
-                | SumByDate()
+                | CsvToDict() # convert csv to dictionary
+                | FilterAmount() #filter rows by transaction amount
+                | FilterDate() #filter rows by date
+                | SumByDate() # group by date
             )
+
+            #export output to desired destination
             output | beam.Map(lambda x: f"{x[0]}, {x[1]}") | beam.io.WriteToText(
                 self.local_output_dest
             )
